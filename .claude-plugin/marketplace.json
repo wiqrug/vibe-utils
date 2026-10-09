@@ -1,0 +1,16 @@
+{
+  "name": "wiqrug",
+  "owner": {
+    "name": "wiqrug maintainers"
+  },
+  "metadata": {
+    "description": "wiqrug, a development loop for Claude Code, as its own marketplace."
+  },
+  "plugins": [
+    {
+      "name": "wiqrug",
+      "source": "./",
+      "description": "A development loop for Claude Code: grill, specify, ticket, build, keep what was learned."
+    }
+  ]
+}

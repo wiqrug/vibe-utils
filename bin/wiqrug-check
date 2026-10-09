@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# wiqrug-check — the project check, under whichever Python this machine has.
+#
+#     wiqrug-check [FOLDER] [--json] [--installed VERSION]
+#     wiqrug-check --python          # the Python it found, one line — for a script that runs others
+#     wiqrug-check --run SCRIPT [ARG…] # SCRIPT under that Python — how a skill's `!` snippet runs one
+#     wiqrug-check --skill [ARG…]     # the same answer, always exit 0 — a skill's first line
+#     wiqrug-check --skill --run SCRIPT [ARG…] # SCRIPT, always exit 0 — every other `!` snippet
+#
+# Every argument goes to lib/project_check.py, whose docstring is the interface. Python is probed
+# as python3, python, then py, each run once: a name on PATH is not a working Python (Windows can
+# carry a python3 that only opens the store). With none, this answers "missing" itself, exit 3.
+# `--python` alone prints the name that ran, so a script (the unattended loop) runs its own Python
+# scripts under it rather than searching a second time: two searches could find two Pythons.
+# `--run` is the same for a skill: a snippet that names python3 fails on a machine whose only
+# Python is `py`, and a snippet cannot probe for itself — it is one call, never shell syntax.
+# `--skill` is the form a skill's `!` snippet uses: Claude Code aborts a skill whose snippet exits
+# non-zero, silently — no turn, no output — so the answer a skill must show would never be seen.
+# It keeps exit 0 for every answer, `--run` and `--json` included, Python or none; `--run` without
+# it keeps the script's own exit code, for a step run through Bash that reads it.
+# Shell builtins only, so it runs wherever /bin/sh or Git Bash does, whatever else is on PATH.
+
+lib="${0%/*}/../lib"
+[ "$lib" = "$0/../lib" ] && lib="../lib"
+skill=""
+if [ "$#" -ge 1 ] && [ "$1" = "--skill" ]; then
+    skill=1
+    shift
+fi
+
+for python in python3 python py; do
+    if command -v "$python" >/dev/null 2>&1 \
+        && "$python" -c 'import sys; sys.exit(sys.version_info < (3, 9))' >/dev/null 2>&1; then
+        if [ "$#" -eq 1 ] && [ "$1" = "--python" ]; then
+            printf '%s\n' "$python"
+            exit 0
+        fi
+        if [ "$#" -ge 2 ] && [ "$1" = "--run" ]; then
+            shift
+            [ -n "$skill" ] || exec "$python" "$@"
+            "$python" "$@" 2>&1
+            exit 0
+        fi
+        [ -n "$skill" ] || exec "$python" "$lib/project_check.py" "$@"
+        "$python" "$lib/project_check.py" "$@"
+        exit 0
+    fi
+done
+
+message="wiqrug: Python 3.9 or newer is not installed (none of python3, python, py runs it) — install Python, then run this again."
+for arg in "$@"; do
+    if [ "$arg" = "--json" ]; then
+        printf '{"answer": "missing", "message": "%s", "root": null, "file": null, "version": null, "installed": null, "settings": {}}\n' "$message"
+        [ -n "$skill" ] && exit 0
+        exit 3
+    fi
+done
+printf '%s\n' "$message"
+[ -n "$skill" ] && exit 0
+exit 3
