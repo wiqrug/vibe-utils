@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Write tests the project's way while building — its own framework and limits from the settings, one red then green per slice, only at the seams the understanding agreed, expected values from an independent source. Use when a box needs code and tests, when fixing a bug test-first, or when unsure what a test here should look like.
+description: Use when a box needs code and tests, when fixing a bug test-first, or when unsure what a test here should look like.
 ---
 
 !`wiqrug-check --skill`
@@ -12,9 +12,8 @@ Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 # Test-driven development
 
 The red → green loop, and what makes it produce tests worth keeping. **`/wiqrug:implement` owns
-the box**: its first step runs the item's own boxes and sees each fail before any code. **This
-skill owns the slices inside a box**: each slice is one test that goes red, then only the code
-that turns it green.
+the box; this skill owns the slices inside it**: each slice is one test that goes red, then only
+the code that turns it green.
 
 Name tests and fixtures with the glossary's words (`documents.glossary`, unless it is `none`), so
 a test reads as a sentence about the thing.
@@ -45,8 +44,18 @@ tool with `wiqrug:codebase-design`: its words are the ones `/wiqrug:to-spec` agr
 
 **Test only at the seams agreed in the understanding.** `/wiqrug:to-spec` writes them under
 `## Where it is tested` in `<documents.queue>/<slug>/understanding.md`. Read that section before
-the first test. A slice that seems to need a seam not listed there is information: attended, ask
-the owner; unattended, write it in the item's `## Comments` and test at the nearest listed seam.
+the first test.
+
+A slice no listed seam reaches is information: attended, ask the owner; unattended, test at
+that code's own public interface — in its existing test file, where it has one — and append under
+the item's `## Comments`:
+
+```text
+Spec question: box <n> needed a seam understanding.md does not list: <the seam, and why no listed one reaches it>
+```
+
+The report then asks the owner, and the reviewer reads it as a gap in the spec, not a defect.
+
 With no such section, the seams are the ones the item's boxes name, and the report says so.
 
 ## Expected values come from an independent source
@@ -91,6 +100,4 @@ question for `wiqrug:file-knowledge`.
 2. **Green.** Write only enough code to pass it. No speculative branch for a later test.
 3. **Next slice.** One seam, one test, one minimal implementation per cycle.
 
-Refactoring is not part of the loop: it belongs to the review, `wiqrug:review-change`. When the
-box's slices are green, `/wiqrug:implement` ticks the box only on its own command exiting 0, then
-runs the project's "done" command, `done.command`.
+Refactoring is not part of the loop: it belongs to the review, `wiqrug:review-change`.

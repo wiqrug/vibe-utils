@@ -1,6 +1,6 @@
 {
   "name": "wiqrug",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A development loop for Claude Code: grill an idea, specify it, cut it into tickets, build them one at a time — attended or unattended — and keep what was learned.",
   "author": {
     "name": "wiqrug maintainers"

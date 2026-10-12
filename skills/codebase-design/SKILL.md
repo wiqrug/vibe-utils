@@ -1,6 +1,6 @@
 ---
 name: codebase-design
-description: Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.
+description: Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.
 ---
 
 # Codebase Design
@@ -33,8 +33,8 @@ characteristics. _Avoid_: API, signature (too narrow, they refer only to the typ
 
 **Implementation**: what's inside a module, its body of code. Distinct from **Adapter**: a thing can
 be a small adapter with a large implementation (an HTTP transport to a payment provider) or a large
-adapter with a small implementation (a test's stand-in). Reach for "adapter" when the seam is the topic;
-"implementation" otherwise.
+adapter with a small implementation (a test's stand-in). Reach for "adapter" when the seam is the
+topic; "implementation" otherwise.
 
 **Depth**: leverage at the interface. The amount of behaviour a caller (or test) can exercise per
 unit of interface they have to learn. A module is **deep** when a large amount of behaviour sits

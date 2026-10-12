@@ -8,12 +8,8 @@ disable-model-invocation: true
 
 Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 
-Interview the user about whatever they brought — a plan, an idea, a design — with the technique
-below, until the frontier is empty and they confirm the playback.
-
-Only the technique, as Matt's `grill-me` is only `grilling`. It needs no setup and files nothing:
-what resolves goes into the playback's decision list; if some of it should be kept, say so there
-and offer `/wiqrug:grill-with-docs`.
+It needs no setup. Write and file nothing; if a resolved term or decision is worth keeping, say
+so in the playback and offer `/wiqrug:grill-with-docs`.
 
 The technique is pasted below from the `interview` skill. If nothing follows the rule, read
 `${CLAUDE_PLUGIN_ROOT}/skills/interview/SKILL.md` and use it.

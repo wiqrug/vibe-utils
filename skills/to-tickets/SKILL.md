@@ -15,8 +15,7 @@ Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 
 # To tickets
 
-The third step of the loop: `/wiqrug:grill-with-docs` → `/wiqrug:to-spec` →
-`/wiqrug:to-tickets` → `/wiqrug:implement`. One input — `<documents.queue>/<slug>/understanding.md`,
+One input — `<documents.queue>/<slug>/understanding.md`,
 which `/wiqrug:to-spec` wrote, or a report of gaps — and one output: a numbered set of items in
 the same folder. **The shape of an item and the meaning of each header are
 [items.md](items.md)** — open it now; this skill is how the set is arrived at.
@@ -155,9 +154,14 @@ the earlier work that delivered it, or noted as worded wrong for the report ([it
 construction, so it is never a box of its own: fold it into a box that fails today, as a clause
 of that box's command.
 
-**Every item ends with `## To file` and `## Comments`**, both empty — [items.md](items.md)'s
-shape. `## To file` is where an unattended session writes what it learned and could not file;
-it is never an acceptance box, so `/wiqrug:to-tickets` writes no line there.
+**A box that names a record names where it was seen.** A box that runs against the project's
+real data — a contract, a code, a booking it expects to find — names that record and where it was
+found: a cell, a recorded fact or question, or a query and the count it returned. Look it up now, while
+writing the box; looking a record up is not running the box. A record you cannot find makes a box
+that cannot run: re-word it to one that exists, or ask the owner.
+
+**Every item ends with `## To file` and `## Comments`**, both empty: `/wiqrug:to-tickets` writes
+nothing in either.
 
 **When an item changes a screen, open [screens.md](screens.md) now**: its one box for the screen,
 where the project has a browser check, and the section the owner follows in the browser.
@@ -176,9 +180,9 @@ read <documents.queue>/<slug>/ against understanding.md and report
   — any box for a person, or any box for the done command
   — any box that restates the request rather than naming what it observes
   — any box that would already pass once the items it is Blocked by are built
+  — any box that names a record of the project's data without saying where it was seen
 ```
 
-It reads and reports — a review of your own decomposition finds what it already agreed with.
 Fix what it finds; renumber if the order changed.
 
 ## 6 — state the queue

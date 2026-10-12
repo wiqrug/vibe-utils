@@ -29,7 +29,7 @@
 #   --environment <name>           one of `environments.list`. Required when the project names
 #                                  more than one — the owner names it, never the model; the one
 #                                  there is when it names one; refused when it names none.
-#   --max <n>                      items this run may attempt [5]
+#   --max <n>|all                  items this run may attempt [5]; all: every item the queue offers
 #   --effort <level>               low|medium|high|xhigh|max [medium]
 #   --model <name>                 overrides the session default
 #   --fallback-model <name>        used when the primary is overloaded
@@ -66,7 +66,8 @@
 #     out of the session's /tmp scratch into `logs/afk/<slug>/<stamp>/<item>/evidence/`.
 #   * a box that passed before any work — /wiqrug:implement ticks it on the evidence of the
 #     earlier work that delivered it, or writes `Box <n> worded wrong:`; that box is OWED and goes
-#     to the report's spec questions. The item is built either way, never parked.
+#     to the report's spec questions. The item is built either way, never parked. So is a box
+#     naming a record of the project's data that is not there: it cannot run as written.
 #   * an older queue: its `Touches:` is ignored, its boxes for a person and its done box are
 #     OWED — what depends on the item goes ahead. The done command's run on the branch tip at the
 #     end closes that box: 0 ticks it, `done.owed-exit` marks it `[~]`.
@@ -98,6 +99,10 @@
 # `/wiqrug:update-knowledge <slug> --unattended`, files each line and ticks it — writing in any
 # file it needs. It waits out a usage limit exactly as an item does, and its cost counts toward
 # --max-spend-usd. Then the done command runs once on the branch tip.
+# ⚠️ It never files a `D:` line: a decision is written in the owner's words, and nobody is there to
+# give them. A `D:` line is not counted as one to file; what the session changes in the decisions
+# folder (`documents.decisions`) anyway is undone by the loop, and a `D:` line it ticked is opened
+# again. The report asks it.
 #
 # ⚠️ It ends in a BRANCH, never a merge, and in a REPORT: every run renders
 # `logs/afk/<slug>/<stamp>/report.md` under the project's root (kept out of git through
@@ -166,7 +171,7 @@ done
 
 number() { [[ ${2:-} =~ ^[0-9]+([.][0-9]+)?$ ]] || die "$1 needs a number"; }
 
-[[ -z $MAX ]] || { [[ $MAX =~ ^[0-9]+$ ]] && ((MAX > 0)); } || die "--max needs a positive number"
+[[ -z $MAX || $MAX == all ]] || { [[ $MAX =~ ^[0-9]+$ ]] && ((MAX > 0)); } || die "--max needs a positive number, or all"
 case "$EFFORT" in low|medium|high|xhigh|max) ;; *) die "--effort: low|medium|high|xhigh|max" ;; esac
 case "$ON_LIMIT" in wait|stop) ;; *) die "--on-limit: wait|stop" ;; esac
 [[ -z $BUDGET ]] || number --max-budget-usd "$BUDGET"
@@ -187,7 +192,8 @@ PY="$(sh "$PLUGIN/bin/wiqrug-check" --python 2>&1)" || die "$PY"
 # loop that guessed one would build in the wrong place with nobody watching.
 #
 # Its answer becomes shell variables here, once: SOURCE_TREE (the git root), QUEUE (the queue
-# folder, absolute), DONE (the "done" command, or empty for `none`), OWED_EXIT (or empty),
+# folder, absolute), DECISIONS (the decisions folder, relative to the root, or empty for `none`),
+# DONE (the "done" command, or empty for `none`), OWED_EXIT (or empty),
 # PREPARE (an array of commands), ENVIRONMENTS (an array of names) and BROWSER (or empty).
 # Each value is quoted by Python's shlex before the shell reads it.
 project="$("$PY" "$LIB/project_check.py" --json 2>&1)"
@@ -209,6 +215,7 @@ names = [re.split(r"[\s:,]", entry.strip(), maxsplit=1)[0] for entry in s["envir
 print("CHECK_FAILED=''")
 print("SOURCE_TREE=" + shlex.quote(found["root"]))
 print("QUEUE=" + shlex.quote(text(s["documents"]["queue"])))
+print("DECISIONS=" + shlex.quote(text(s["documents"]["decisions"])))
 print("DONE=" + shlex.quote(text(s["done"]["command"])))
 print("OWED_EXIT=" + shlex.quote(text(s["done"]["owed-exit"])))
 print("BROWSER=" + shlex.quote(text(s["browser"]["check"])))
@@ -220,6 +227,9 @@ eval "$settings"
 [[ -z ${CHECK_FAILED:-} ]] || die "$CHECK_FAILED"
 [[ -n $QUEUE ]] || die "documents.queue is \`none\` — this project keeps no work queue"
 QUEUE_REL="${QUEUE#"$SOURCE_TREE"/}"
+# Relative, as a worktree holds it: the loop compares it in the copy, never the source tree.
+DECISIONS="${DECISIONS#"$SOURCE_TREE"/}"
+DECISIONS="${DECISIONS%/}"
 [[ -n $SLUG ]] || die "a work slug is required — a folder under $QUEUE_REL/"
 [[ -d $QUEUE/$SLUG ]] || die "no $QUEUE_REL/$SLUG"
 
@@ -959,7 +969,8 @@ with open(out, "a", encoding="utf-8") as handle:
 
 # open_to_file — how many `## To file` lines are unticked across the queue, as work_next.py
 # reads them: one parser for the item format, never a grep beside it. `?` when work_next.py
-# fails or prints no list: a count nobody could take is not a zero.
+# fails or prints no list: a count nobody could take is not a zero. A `D:` line is not counted:
+# the closing session may not file it, so it is no reason to start one.
 open_to_file() {
   local json
   json="$(work_next "$QUEUE_ROOT" "$SLUG" --json 2>/dev/null)" || { echo "?"; return 0; }
@@ -967,9 +978,123 @@ open_to_file() {
 import json, sys
 try:
     rows = json.loads(sys.argv[1])
-    print(sum(not line["filed"] for row in rows for line in row.get("to_file", [])))
+    print(sum(not line["filed"] and not line["decision"]
+              for row in rows for line in row.get("to_file", [])))
 except (json.JSONDecodeError, TypeError, KeyError, AttributeError):
     print("?")' "$json"
+}
+
+# refuse_decisions <before> — an unattended run never files a `D:` line. A decision is written in
+# the owner's words, and a closing session once wrote its own into one; the skill's instruction
+# had not stopped it. So, whatever the session did since <before>, every file it changed in the
+# decisions folder goes back to what it was (a citation fix aside: keep_citations), every `D:`
+# line it ticked is opened again, and so is
+# any other line it filed into a file put back — that is filed nowhere now
+# (work_next.reopen_decisions: one parser for the item format) — and the loop commits that on its
+# own. Sets DECIDED (the paths, comma-separated), REOPENED (how many lines), UNDONE (the commit,
+# or empty) and REFUSAL (empty, or `unknown` when the reopen step failed and `uncommitted` when the
+# commit did, comma-separated) for the filing row, which the report reads.
+# keep_citations <before> <changed decision file>… — sets the caller's `paths` to the decision
+# files the loop puts back: every one the closing session changed, except one whose only change
+# is which path a backticked citation names (work_next.citations_only). The closing session fixes
+# what the knowledge base names in whichever file it names, and a dead path cited in a decision
+# is fixed only there; that fix decides nothing, so it is kept, and said. Added or deleted files
+# always go back; when the check itself fails, every file goes back.
+keep_citations() {
+  local before="$1" out path
+  shift
+  out="$("$PY" - "$LIB" "$WORKTREE" "$before" "$@" <<'PY'
+import subprocess, sys
+sys.dont_write_bytecode = True
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import work_next
+tree, before = Path(sys.argv[2]), sys.argv[3]
+def show(ref, rel):
+    run = subprocess.run(["git", "-C", str(tree), "show", f"{ref}:{rel}"],
+                         capture_output=True, text=True, encoding="utf-8", check=False)
+    return run.stdout if run.returncode == 0 else None
+for rel in sys.argv[4:]:
+    old, new = show(before, rel), show("HEAD", rel)
+    if old is None or new is None or not work_next.citations_only(old, new):
+        print(rel)
+PY
+)" || out="$(printf '%s\n' "$@")"
+  while IFS= read -r path; do [[ -n $path ]] && paths+=("$path"); done <<<"$out"
+  for path in "$@"; do
+    [[ $'\n'$out$'\n' == *$'\n'$path$'\n'* ]] \
+      || say "⚠️  kept the closing session's fix to a path cited in $path — it changes nothing but the path a check named"
+  done
+}
+
+refuse_decisions() {
+  local before="$1" paths=() items=() changed=()
+  DECIDED=""; REOPENED=0; UNDONE=""; REFUSAL=""
+  local path
+  # A read loop, as this file reads every list of lines: no mapfile.
+  if [[ -n $DECISIONS ]]; then
+    while IFS= read -r path; do changed+=("$path"); done \
+      < <(git -C "$WORKTREE" diff --name-only "$before" HEAD -- "$DECISIONS/")
+  fi
+  ((${#changed[@]})) && keep_citations "$before" "${changed[@]}"
+  while IFS= read -r path; do items+=("$path"); done \
+    < <(git -C "$WORKTREE" diff --name-only "$before" HEAD -- "$QUEUE_REL/$SLUG/")
+  if ((${#items[@]})); then
+    REOPENED="$("$PY" - "$LIB" "$WORKTREE" "$before" "$(printf '%s\n' "${paths[@]}")" "${items[@]}" <<'PY'
+import re, subprocess, sys
+sys.dont_write_bytecode = True
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import work_next
+tree, before, total, rewrites = Path(sys.argv[2]), sys.argv[3], 0, []
+# The decision files about to be put back, by path, file name and ID: a line filed into one
+# is filed nowhere once it is.
+undone = []
+for rel in filter(None, sys.argv[4].split("\n")):
+    name = Path(rel).name
+    undone += [rel, name] + re.findall(r"^[A-Z]+-\d+", name)
+for rel in sys.argv[5:]:
+    path = tree / rel
+    if not path.is_file():
+        continue
+    old = subprocess.run(["git", "-C", str(tree), "show", f"{before}:{rel}"],
+                         capture_output=True, text=True, encoding="utf-8", check=False).stdout
+    new, count = work_next.reopen_decisions(old, path.read_text(encoding="utf-8"), tuple(undone))
+    if count:
+        rewrites.append((path, new))
+        total += count
+# Every item is read before one is written: a step that fails half way has rewritten none.
+for path, new in rewrites:
+    path.write_text(new, encoding="utf-8")
+print(total)
+PY
+)" || REOPENED="?"
+  fi
+  # A count nobody could take is not a zero: a failed step leaves a ticked D: line ticked, and
+  # the run says so rather than "nothing ticked".
+  if [[ ! $REOPENED =~ ^[0-9]+$ ]]; then
+    REOPENED=0; REFUSAL=unknown
+    say "⚠️  whether the closing session ticked a D: line could not be checked — the loop's reopen step failed; read the To file lines in $QUEUE_REL/$SLUG/ before anything is merged: a decision is the owner's"
+  fi
+  ((${#paths[@]})) || [[ $REOPENED != 0 ]] || return 0
+  ((${#paths[@]})) && git -C "$WORKTREE" restore --source="$before" --staged --worktree -- "${paths[@]}"
+  DECIDED="$(IFS=,; printf '%s' "${paths[*]}")"
+  # A commit naming its paths takes them as the tree holds them: a restored deletion included.
+  if git -C "$WORKTREE" commit -qm "afk: a decision is the owner's — the closing session's change to ${DECISIONS:-the decisions} undone, its D: lines open again" \
+       -- "${paths[@]}" "${items[@]}"; then
+    UNDONE="$(git -C "$WORKTREE" rev-parse --short HEAD)"
+    if ((${#paths[@]})); then
+      say "⚠️  the closing session changed ${#paths[@]} file(s) under $DECISIONS/ — undone in $UNDONE; $REOPENED To file line(s) open again: a decision is the owner's"
+    else
+      say "⚠️  the closing session ticked, moved or removed $REOPENED D: line(s) — open again in $UNDONE: a decision is the owner's"
+    fi
+  else
+    git -C "$WORKTREE" reset -q -- "${paths[@]}" "${items[@]}"
+    git -C "$WORKTREE" checkout -q -- "${paths[@]}" "${items[@]}" 2>/dev/null
+    # The checkout put the session's ticks back: nothing was reopened, and the report says why.
+    REOPENED=0; REFUSAL="${REFUSAL:+$REFUSAL,}uncommitted"
+    say "⚠️  the closing session's change to ${#paths[@]} file(s) under $DECISIONS/ and to its D: lines could not be undone in a commit — read them before anything is merged"
+  fi
 }
 
 # file_findings <why-not> — THE CLOSING SESSION, `/wiqrug:update-knowledge <slug> --unattended`,
@@ -985,6 +1110,7 @@ except (json.JSONDecodeError, TypeError, KeyError, AttributeError):
 # stopped another item's run.
 file_findings() {
   local skip="$1" open log="$LOGS/filing.jsonl" status=filed why="" cost=0 before after
+  DECIDED=""; REOPENED=0; UNDONE=""; REFUSAL=""
   open="$(open_to_file)"
   before="$(git -C "$WORKTREE" rev-parse HEAD)"
   if [[ -z $open || $open == "?" ]]; then
@@ -1027,17 +1153,22 @@ file_findings() {
     if [[ -n "$(git -C "$WORKTREE" status --porcelain)" ]]; then
       say "       the closing session left uncommitted changes — kept on $(keep_leftovers filing)"
     fi
+    refuse_decisions "$before"
     open="$(open_to_file)"
     [[ $status == filed ]] && say "       filed; ${open:-0} To file line(s) still open"
   fi
   after="$(git -C "$WORKTREE" rev-parse HEAD)"
   "$PY" -c 'import json, sys
-out, status, why, cost, log, before, after = sys.argv[1:8]
+out, status, why, cost, log, before, after, decided, reopened, undone, refusal = sys.argv[1:12]
 with open(out, "a", encoding="utf-8") as handle:
     handle.write(json.dumps({"kind": "filing", "status": status, "why": why,
                              "cost": float(cost), "log": log,
-                             "before": before, "after": after}) + "\n")' \
-    "$LOGS/run.jsonl" "$status" "$why" "$cost" "$log" "$before" "$after"
+                             "before": before, "after": after,
+                             "decisions": [p for p in decided.split(",") if p],
+                             "reopened": int(reopened or 0), "undone": undone,
+                             "refusal": refusal}) + "\n")' \
+    "$LOGS/run.jsonl" "$status" "$why" "$cost" "$log" "$before" "$after" \
+    "$DECIDED" "$REOPENED" "$UNDONE" "$REFUSAL"
 }
 
 # final_text <stream-json log> — the session's last `result` text, or nothing. It asks
@@ -1075,8 +1206,9 @@ The diff since $2 is ONE item of an unattended run, $1, from the queue $QUEUE_RE
 wrote none of it, and you change none of it. Nothing asks you anything: take the base and the
 spec above as named. In the Spec reviewer's brief, also ask: whether every box ticked on a
 "Fails first:" line's evidence really was delivered by the earlier work that line names; whether
-every box left open by a "Box <n> worded wrong:" line really passed at $2, before any work, and
-is really worded wrong — rather than a box the session could not make pass; any ticked box
+every box left open by a "Box <n> worded wrong:" line really passed at $2, before any work, or
+names a record of the project's data that really is not there, and is really worded wrong —
+rather than a box the session could not make pass; any ticked box
 whose command could not have tested what the box claims; and, for each finding, whether it is
 a defect of the code or a gap in the spec. Your final message is the step-5
 report — ## Standards, ## Spec and the two total lines — and nothing else.
@@ -1098,8 +1230,8 @@ first. Check each finding before acting on it, and give it exactly one verdict:
                    "Spec question: <the question, for the owner>", and commit it.
   unchecked      — anything else, including a finding you could not settle either way.
 If a confirmed finding shows a ticked box does not hold and you cannot make it hold, untick
-that box. If it shows a "Box <n> worded wrong:" line is wrong — the box did not pass before
-any work — make the box pass and delete the line, or untick nothing and delete the line. Leave
+that box. If it shows a "Box <n> worded wrong:" line is wrong — the box neither passed before
+any work nor names a record that is not there — make the box pass and delete the line, or untick nothing and delete the line. Leave
 nothing uncommitted. Your final message is one \`\`\`json block and nothing else, in this shape:
 {"standards": {"ran": true, "note": "", "findings": [
    {"finding": "<the finding, verbatim, with its file and line>",
@@ -1259,7 +1391,7 @@ import json, sys
 out, slug, env, effort, model, mx, budget, done, owed, base = sys.argv[1:11]
 with open(out, "w", encoding="utf-8") as handle:
     handle.write(json.dumps({"kind": "meta", "slug": slug, "environment": env or None,
-                             "effort": effort, "model": model, "max": int(mx),
+                             "effort": effort, "model": model, "max": mx if mx == "all" else int(mx),
                              "budget_per_item": budget or None, "done": done or None,
                              "owed_exit": int(owed) if owed else None,
                              "base_branch": base or None}) + "\n")
@@ -1375,7 +1507,15 @@ settle() {
   STATE_WHY="$why"
 }
 
-for ((round = 1; round <= MAX; round++)); do
+# --max all: every item the queue offers. Each is attempted at most once in a run, so the queue's
+# length bounds it; the run still ends as soon as nothing is ready.
+ROUNDS="$MAX"
+if [[ $MAX == all ]]; then
+  ROUNDS="$(work_next "$QUEUE_ROOT" "$SLUG" --json 2>/dev/null \
+    | "$PY" -c 'import json, sys; print(len(json.load(sys.stdin)))' || true)"
+  [[ $ROUNDS =~ ^[0-9]+$ ]] || die "--max all: the queue could not be counted (work_next.py $SLUG --json)"
+fi
+for ((round = 1; round <= ROUNDS; round++)); do
   item="$(work_next "$QUEUE_ROOT" "$SLUG" --unattended 2>/dev/null || true)"
   if [[ -z $item ]]; then
     say "nothing ready — stopping after $drained item(s)"

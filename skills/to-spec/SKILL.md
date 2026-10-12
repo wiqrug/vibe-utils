@@ -13,10 +13,8 @@ Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 
 # To spec
 
-The second step of the loop: `/wiqrug:grill-with-docs` → `/wiqrug:to-spec` →
-`/wiqrug:to-tickets` → `/wiqrug:implement`. Its input is this conversation — the interview and
-the playback the owner confirmed. **Do not interview.** Synthesize what was already said; the one
-question this skill asks is the seams (step 1). With no confirmed playback in the conversation,
+Its input is this conversation — the interview and the playback the owner confirmed. **Do not
+interview.** Synthesize what was already said. With no confirmed playback in the conversation,
 stop and say `/wiqrug:grill-with-docs` comes first.
 
 The output is one document that a later session, with no memory of this conversation, can be
@@ -28,8 +26,7 @@ Call the Skill tool with `wiqrug:codebase-design` first, and use its words — m
 seam, adapter, depth — here and in `## Implementation decisions`. Sketch the seams — the places a
 test observes behaviour at, such as a pricing decision or an external client's transport.
 **Prefer an existing seam to a new one, the highest seam possible, and as few as possible — the
-ideal is one.** A new seam is proposed at the highest point it can go. `/wiqrug:tdd` writes tests
-only at the seams agreed here, with `tests.framework` and within `tests.limits`.
+ideal is one.** A new seam is proposed at the highest point it can go.
 
 Put them to the owner as one numbered question — `❓ **Q1** - **Where it is tested**: …` then
 `➡️ <your recommendation>` — and wait. This is the only question; everything else comes from the
@@ -51,7 +48,7 @@ folder is the one the settings above name:
 ## Invariants             what may not change, and what breaks if it does
 ## Implementation decisions  the modules built or changed and the interface each shows the
                           rest, schema changes, API contracts, the owner's technical calls
-## Where it is tested     the seams agreed in step 1 — tdd tests nowhere else — and the
+## Where it is tested     the seams agreed in step 1 — tdd tests here, and asks before any other — and the
                           prior art: the existing tests nearest to them, named by what they test
 ## Out of scope           named, so a later session does not helpfully add it
 ## Undecided              each with the open question or the owner's decision it waits on
@@ -65,10 +62,8 @@ do not file it again. Where the project keeps specifications (`documents.specs` 
 and this work changes one, say so under `## Implementation decisions`: the specification is
 updated by the item that changes what it describes.
 
-⚠️ **No file paths, no line numbers, no code in this document.** They go stale inside a week
-and a reader cannot tell that they have, so they mislead with the full authority of something
-specific. Nor do they belong in a work item: the session that builds the item finds them from
-the code.
+⚠️ **No file paths, no line numbers, no code in this document.** They go stale, and a reader
+cannot tell that they have.
 
 ## Report
 

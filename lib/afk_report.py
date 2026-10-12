@@ -9,8 +9,9 @@ fresh session that was not there — means re-deriving the run from its own exha
 So the run renders its own answer, in three parts: what was BUILT, REVIEWED AND PROVED; what is
 FOR YOU TO CHECK — each screen's browser steps, what the code gate could not verify, and what
 waits on a running copy of the project after the merge; and the SPEC QUESTIONS — boxes worded
-wrong, and review findings that were gaps in the spec. The second decides what you go and test;
-the third, what you have to decide.
+wrong, review findings that were gaps in the spec, and every `D:` To file line, which an
+unattended run never files. The second decides what you go and test; the third, what you have to
+decide.
 
     python3 ${CLAUDE_PLUGIN_ROOT}/lib/afk_report.py <slug> --logs <root>/logs/afk/<slug>/<stamp>
     python3 ${CLAUDE_PLUGIN_ROOT}/lib/afk_report.py <slug> --worktree ~/afk/<slug>
@@ -477,17 +478,67 @@ def read_filing(logs: Path) -> dict:
     return filing
 
 
+#: Why an open `D:` line was not filed, whatever the closing session did.
+DECISION_NOT_FILED = ("a decision is yours — an unattended run never files one; "
+                      "it is asked under ## Spec questions")
+
+
+#: Why a line the closing session ticked is open again: it was filed into a decision file, and
+#: the loop put that file back (`work_next.UNFILED` is what the loop wrote on the line).
+UNFILED_IN_DECISION = ("the closing session filed it into a decision file, which the loop put "
+                       "back — it is filed nowhere; file it again, attended")
+
+
+def unreasoned(text: str) -> str:
+    """A `D:` line without the "not filed" reason the closing session or the loop wrote on it:
+    the report gives its own, and saying it twice reads as two reasons."""
+    return text.removesuffix(f" — {work_next.NOT_FILED}")
+
+
+def decisions_undone(filing: dict) -> list[str]:
+    """What the loop said about the closing session's changes to the decision files and its `D:`
+    lines, or nothing.
+
+    The loop undoes them (`afk.sh` refuse_decisions); this says so where the findings are read,
+    so the owner is told a session tried to decide something, not only that nothing changed —
+    and, when the loop could not undo it, that a ticked `D:` line below may not be the owner's."""
+    paths = [path for path in filing.get("decisions") or [] if path]
+    reopened = int(filing.get("reopened") or 0)
+    refusals = set((filing.get("refusal") or "").split(","))
+    out: list[str] = []
+    if "unknown" in refusals:
+        out += ["⚠️ **Whether the closing session ticked a `D:` line could not be checked** — the "
+                "loop's step that reopens one failed, so a `D:` line shown filed below may be one "
+                "it filed anyway. Read the items' `## To file` before anything is merged: a "
+                "decision is yours.", ""]
+    if "uncommitted" in refusals or (paths and not filing.get("undone")):
+        where = ", ".join(paths) or "its `D:` lines"
+        return out + [f"⚠️ **The closing session's change to {where} could not be undone in a "
+                      "commit** — read those files before anything is merged: a decision is "
+                      "yours.", ""]
+    if not paths and reopened and filing.get("undone"):
+        return out + [f"⚠️ **The closing session ticked, moved or removed {reopened} `D:` "
+                      f"line(s)** — a decision is yours, so the loop opened them again in "
+                      f"`{filing['undone']}`. Read its log for where it wrote them.", ""]
+    if not paths:
+        return out
+    return out + [f"⚠️ **The closing session changed {', '.join(paths)}** — a decision is yours, "
+                  f"so the loop undid it in `{filing['undone']}` and opened {reopened} "
+                  "`## To file` line(s) again. Read its log for what it wanted to decide.", ""]
+
+
 def filed_section(slug: str, items: list[work_next.Item], filing: dict) -> list[str]:
     """`## Filed`: every `## To file` line in the queue — filed, or not and why.
 
     ⚠️ A ticked line is filed because the item file says so; nothing here checks the knowledge
     base. An unticked one is the report's to explain, because a finding that silently stays
-    in an item file is archived with it and never read again.
+    in an item file is archived with it and never read again. An open `D:` line is never the
+    filing session's to file: its reason is always that the decision is the owner's.
     """
     lines = [(item, filed, text) for item in items for filed, text in item.to_file]
     if not lines and not filing:
         return []
-    out = ["## Filed", ""]
+    out = ["## Filed", ""] + decisions_undone(filing)
     status, why = filing.get("status", ""), filing.get("why", "")
     if status == "filed":
         out += [f"One session of `/wiqrug:update-knowledge {slug}` filed the run's findings after "
@@ -510,7 +561,12 @@ def filed_section(slug: str, items: list[work_next.Item], filing: dict) -> list[
                   "skipped": why, "failed": why}.get(status) \
             or f"no filing session ran — run `/wiqrug:update-knowledge {slug}`"
         out += ["Not filed:", ""]
-        out += [f"- [ ] **{item.number}** {text} — {reason}" for item, text in left]
+        unfiled = f" — {work_next.UNFILED}"
+        out += [f"- [ ] **{item.number}** {unreasoned(text)} — {DECISION_NOT_FILED}"
+                if work_next.is_decision(text)
+                else f"- [ ] **{item.number}** {text.removesuffix(unfiled)} — {UNFILED_IN_DECISION}"
+                if text.endswith(unfiled) else f"- [ ] **{item.number}** {text} — {reason}"
+                for item, text in left]
         out.append("")
     return out
 
@@ -712,6 +768,13 @@ def spec_questions(items: list[work_next.Item],
             out.append((item.number, item.title, f"box {number}, {box} — worded wrong: {why}"))
         out += [(item.number, item.title, question) for question in item.spec_questions]
     return out
+
+
+def decisions_asked(items: list[work_next.Item]) -> list[tuple[str, str, str]]:
+    """(number, title, line) for every open `D:` To file line in the queue — attempted by this
+    run or not: a decision waits for the owner whichever run wrote it."""
+    return [(item.number, item.title, unreasoned(text))
+            for item in items for text in item.open_decisions]
 
 
 #: Session endings after which the item still counts toward the queue's progress.
@@ -925,15 +988,25 @@ def check_section(items: list[work_next.Item], sessions: list[Session],
 
 
 def questions_section(items: list[work_next.Item], sessions: list[Session]) -> list[str]:
-    """Part 3: the spec questions — the owner's to answer, never a session's to guess."""
+    """Part 3: the spec questions — the owner's to answer, never a session's to guess — and
+    the decisions a session met while building, which no unattended run files."""
     out = ["## Spec questions", ""]
     found = spec_questions(items, sessions)
+    asked = decisions_asked(items)
     if not found:
-        return out + ["None: no box was found worded wrong, and no review finding was a gap "
-                      "in the spec.", ""]
-    out += ["Each is a gap in the spec, not a defect of the code: nothing was built for it.", ""]
-    out += [f"- **{number}** {title} — {question}" for number, title, question in found]
-    return out + [""]
+        out += ["None: no box was found worded wrong, and no review finding was a gap "
+                "in the spec.", ""]
+    else:
+        out += ["Each is a gap in the spec, not a defect of the code: nothing was built for it.", ""]
+        out += [f"- **{number}** {title} — {question}" for number, title, question in found]
+        out.append("")
+    if asked:
+        out += ["Decisions a session met while building, written as `D:` lines and never filed: "
+                "a decision is written in your words. Decide each — or say it is not one — and "
+                "`/wiqrug:update-knowledge <slug>`, run with you, files it in your words.", ""]
+        out += [f"- **{number}** {title} — decide: {line}" for number, title, line in asked]
+        out.append("")
+    return out
 
 
 def settings_line(meta: dict) -> str:
@@ -1037,7 +1110,9 @@ def main(argv: list[str]) -> int:
     print(f"report: {out}")
     pending = human_boxes(items, sessions)
     questions = spec_questions(items, sessions)
-    print(f"        {len(pending)} box(es) for you to check, {len(questions)} spec question(s)")
+    asked = decisions_asked(items)
+    print(f"        {len(pending)} box(es) for you to check, {len(questions)} spec question(s)"
+          + (f", {len(asked)} decision(s) for you" if asked else ""))
     return 0
 
 
@@ -1210,6 +1285,34 @@ def selftest() -> int:
         if "no filing session ran — run `/wiqrug:update-knowledge demo`" not in text:
             failures.append("with no filing row, ## Filed did not say none ran")
 
+        # A D: line is asked, never filed, and a session's try at it is said.
+        (folder / "01-a-thing.md").write_text(
+            ITEM + "\n## To file\n\n- [x] G: a trap — G-400\n- [ ] D: the base file is read at the click"
+            f" — {work_next.NOT_FILED}\n- [ ] term: Filing — {work_next.UNFILED}\n")
+        items = work_next.load("demo", queue)
+        text = render("demo", items, [session], tree, "afk/demo", tree, meta, {}, {},
+                      {"kind": "filing", "status": "filed", "decisions": ["docs/decisions/D-041-x.md"],
+                       "reopened": 1, "undone": "abc1234"})
+        questions = text.split("## Spec questions")[1].split("\n## ")[0]
+        filed = text.split("## Filed")[1].split("\n## ")[0] if "## Filed" in text else ""
+        if "— decide: D: the base file is read at the click\n" not in questions:
+            failures.append("an open D: line was not asked with the spec questions")
+        if f"- [ ] **01** D: the base file is read at the click — {DECISION_NOT_FILED}" not in filed:
+            failures.append("an open D: line in ## Filed did not say a decision is the owner's")
+        if "changed docs/decisions/D-041-x.md** — a decision is yours, so the loop undid it in `abc1234`" \
+                not in filed:
+            failures.append("the loop's undoing of a decision file was not said")
+        if f"- [ ] **01** term: Filing — {UNFILED_IN_DECISION}" not in filed:
+            failures.append("a line filed into an undone decision file did not say so")
+        # The loop could not reopen, or could not commit the reopening: said, never nothing.
+        for refusal, said in (("unknown", "line could not be checked**"),
+                              ("uncommitted", "could not be undone in a commit**")):
+            text = render("demo", items, [session], tree, "afk/demo", tree, meta, {}, {},
+                          {"kind": "filing", "status": "filed", "decisions": [], "reopened": 0,
+                           "undone": "", "refusal": refusal})
+            if said not in text.split("## Filed")[1].split("\n## ")[0]:
+                failures.append(f"a refusal that was {refusal} was not said in ## Filed")
+
         failures += _selftest_review_and_questions(tree, folder, session, meta)
 
         # A subagent's window and a synthetic record are not the item's: alone, they are unknown.
@@ -1227,7 +1330,7 @@ def selftest() -> int:
 
     for line in failures:
         print(f"selftest FAIL  {line}", file=sys.stderr)
-    print(f"selftest {'FAILED' if failures else 'ok'} — 43 checks")
+    print(f"selftest {'FAILED' if failures else 'ok'} — 46 checks")
     return 1 if failures else 0
 
 

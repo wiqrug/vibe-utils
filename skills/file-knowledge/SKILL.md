@@ -70,8 +70,7 @@ is one file, or the reverse — is asked about, never reshaped.
   stops it coming back, or `none:` and the reason. Building the check is preferred to writing
   `none:`.
 - **A decision gets a `D-` file only when it is all three:** hard to reverse, surprising without
-  its context, and the result of a real trade-off. Otherwise the commit message holds it. An
-  owner's decision is written with the owner's words, verbatim.
+  its context, and the result of a real trade-off. Otherwise the commit message holds it.
 - **Terms use the glossary's format** and its words: a synonym goes on the `_Avoid_:` line,
   never into prose.
 - **An answer is appended, dated, never edited over its evidence.** When the evidence refuses an
@@ -95,8 +94,7 @@ the knowledge files. Write the finding into the item file instead, as one untick
 ```
 
 The types are `G:`, `F:`, `Q:`, `answer:`, `term:`, `D:` and `defect:` — the same in every
-project, whatever its level. After the last item the loop runs `/wiqrug:update-knowledge <slug>`,
-which files each line through this skill, one commit each, and ticks it with where it now lives.
+project, whatever its level.
 
 ## After filing
 

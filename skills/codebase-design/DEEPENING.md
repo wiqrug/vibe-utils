@@ -13,20 +13,21 @@ check names, often no database and no network — decides categories 2 to 4 here
 
 ### 1. In-process
 
-Pure computation, in-memory state, no I/O: a calculation's decisions, a format's field mapping. Always deepenable: merge the modules and test through the new interface directly. No
+Pure computation, in-memory state, no I/O: a calculation's decisions, a format's field mapping.
+Always deepenable: merge the modules and test through the new interface directly. No
 adapter needed.
 
 ### 2. Local-substitutable
 
 Dependencies with a local stand-in: the file system (a temporary directory), the database session (a
-small class holding the rows the code reads, as `/wiqrug:tdd` shows). Deepenable
-when the stand-in is small. The seam is internal; no port at the module's external interface.
+small class holding the rows the code reads, as `/wiqrug:tdd` shows). Deepenable when the stand-in
+is small. The seam is internal; no port at the module's external interface.
 
 ### 3. Remote but owned (Ports & Adapters)
 
-This project's own processes across a socket, such as a worker or a local daemon. Define a **port** (interface) at
-the seam. The deep module owns the logic; the transport is injected as an **adapter**. Tests use an
-in-memory adapter. Production uses the socket adapter.
+This project's own processes across a socket, such as a worker or a local daemon. Define a
+**port** (interface) at the seam. The deep module owns the logic; the transport is injected as an
+**adapter**. Tests use an in-memory adapter. Production uses the socket adapter.
 
 Recommendation shape: *"Define a port at the seam, implement the socket adapter for production and
 an in-memory adapter for testing, so the logic sits in one deep module even though it runs in two
@@ -37,15 +38,6 @@ processes."*
 Services this project does not control: a payment provider, a partner's API. The deepened module
 takes the external dependency as an injected port; tests provide a stand-in adapter for its
 transport.
-
-## Seam discipline
-
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a port
-  unless at least two adapters are justified (typically production + test). A single-adapter seam is
-  just indirection.
-- **Internal seams vs external seams.** A deep module can have internal seams (private to its
-  implementation, used by its own tests) as well as the external seam at its interface. Don't expose
-  internal seams through the interface just because tests use them.
 
 ## Testing strategy: replace, don't layer
 

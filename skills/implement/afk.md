@@ -50,7 +50,7 @@ session from its start; Ctrl-C stops only the watching. The same lines print the
 |---|---|---|
 | `--environment` | the one there is | Required when `environments.list` names several — the owner names it, never the model. Refused when it names none. The sessions are told it, and see it as `WIQRUG_ENVIRONMENT`. |
 | `--effort` | `medium` | The thinking was spent in `/wiqrug:grill-with-docs`, `/wiqrug:to-spec` and `/wiqrug:to-tickets`, which are paid once; an item arrives pre-decomposed with boxes that name their commands, and is paid for N times. Raise it for an item you know is hard. |
-| `--max` | `5` | How many items this run may attempt: a run sized so its branch can still be read. Lower it to read one item's branch before the next is built on it. |
+| `--max` | `5` | How many items this run may attempt: a run sized so its branch can still be read. Lower it to read one item's branch before the next is built on it; `all` attempts every item the queue offers, each once, until nothing is ready — a branch that much longer to read. |
 | `--max-budget-usd` | none | ⚠️ **Per item, not per run** — the flag belongs to one `claude` invocation and there are `--max` of them. `--max-budget-usd 5 --max 5` is a ceiling of twenty-five dollars. |
 | `--max-spend-usd` | none | The whole run's ceiling, added up between items. This is the one that means what it looks like. |
 | `--on-limit` | `wait` | `wait` retries the same item until the usage window reopens; `stop` ends the run and leaves the queue for the next one. |
@@ -92,7 +92,7 @@ answer heads the report.
 |---|---|---|
 | every box ticked | `done` | goes on |
 | only boxes no session can close left open — a box worded wrong, and in an older queue a person's box, a `[~]` box or its "done" box | `owed` — counts as settled, its boxes listed in the report | goes on, dependants included |
-| a box passed before any work (`/wiqrug:implement` step 2) | ticked on the evidence of the earlier work that delivered it, for the reviewer to check — or left open with `Box <n> worded wrong:`, owed, and a spec question in the report. **Never parked** | goes on |
+| a box passed before any work, or names a record that is not there (`/wiqrug:implement` step 2) | ticked on the evidence of the earlier work that delivered it, for the reviewer to check — or left open with `Box <n> worded wrong:`, owed, and a spec question in the report. **Never parked** | goes on |
 | did not exit 0 · spent its `--max-budget-usd` · the code gate failed after its one repair · a box a command should close is open | **set aside** for this run | goes on with every item that does not depend on it |
 | deleted one of its own acceptance boxes, or left one with an unclosed backtick | **set aside** — `damaged`; restore the boxes from the commit the report names | goes on with every item that does not depend on it |
 | left uncommitted changes | set aside; the changes are kept on `afk/<slug>-leftover-NN-<stamp>` and the worktree reset | goes on |
@@ -151,6 +151,14 @@ cost counts toward `--max-spend-usd`. It is skipped when the run stopped on a li
 the spend ceiling, and the lines stay open for the next run. The report's `## Filed` lists every
 line — filed, or not and why.
 
+⚠️ **It never files a `D:` line**: a decision is written in the owner's words, and a closing
+session once wrote its own into one. A `D:` line is not counted as one to file, so it alone
+starts no session; the session leaves it unticked with the reason; and whatever the session does
+anyway, the loop (`refuse_decisions`) puts every file it changed in `documents.decisions` back,
+opens again every `D:` line it ticked, commits that on its own, and records it in the `filing`
+row. The report asks each open `D:` line under its spec questions, and says so when the loop had
+to undo a change.
+
 ## A session's evidence lands in the run's logs
 
 Each session is given a scratch directory under `/tmp/afk-<slug>-<stamp>/<NN>` — in its
@@ -194,7 +202,8 @@ command:
    reached is listed separately, under `## Not attempted`.** Its boxes are not a review list —
    sending somebody to test work that was never built is a confident wrong answer.
 3. **Spec questions.** Every box worded wrong, and every `Spec question:` line an item's fix
-   wrote — read from the item files, which outlive the report.
+   wrote — read from the item files, which outlive the report. Then every open `D:` To file line
+   in the queue, as a decision for the owner: no unattended run files one.
 
 Then **`## Filed`**, and under **`## Per item`** each item's boxes, its commits, its review's
 verdicts finding by finding, and its **peak context**: the most one API call held, read from that

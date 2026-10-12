@@ -5,7 +5,7 @@ Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 The shape `/wiqrug:to-tickets` writes and `/wiqrug:implement`, the unattended loop and the queue
 reader (`${CLAUDE_PLUGIN_ROOT}/lib/work_next.py`) read. A project keeps no copy of this page.
 
-A **work item** is one slice of work, sized to fit a single fresh context window, that answers
+A **work item** is one slice of work, sized to finish in about 150k tokens of context, that answers
 *what do I do next, and can I do it yet?*. It is finished and then archived. What it moves — a
 unit in a Full knowledge base, the Now note's Next in a Standard one — is the durable subject
 that answers *where does this stand?*, and outlives every item. The two are related by citation,
@@ -72,23 +72,16 @@ boxes and its done box (once anything else on the item is ticked) are **owed**: 
 as settled for `Blocked by:`, and the loop's report lists each such box under *For you to check*.
 
 **`## To file` holds what an unattended session learned and left for the run's closing
-session.** One unticked line per finding, typed by its kind and written in the words it would be
-filed with: `G:` a trap, `F:` a fact, `Q:` a question, `answer:` an answer to an open question,
-`term:` a glossary term, `D:` a decision, `defect:` a defect left unfixed. The loop runs
-`/wiqrug:update-knowledge <slug>` once after the last item, which files each line through
-`/wiqrug:file-knowledge` and ticks it with where it now lives. **A To file line is not an
-acceptance box**: it never holds the item open.
+session**: one unticked line per finding, typed by its kind and written in the words it would be
+filed with — `G:` a trap, `F:` a fact, `Q:` a question, `answer:` an answer to an open question,
+`term:` a glossary term, `D:` a decision, `defect:` a defect left unfixed. **It is not an
+acceptance box** and never holds the item open. The closing session files every line but a `D:`
+one (`/wiqrug:update-knowledge <slug> --unattended`); a decision is the owner's, filed by an
+attended `/wiqrug:update-knowledge <slug>` once they answer.
 
-**Three `## Comments` lines are read by the loop**, each by its exact prefix:
-
-- `Fails first: box <n> passed at <sha> before any work — delivered by <what>: <evidence>.` —
-  `/wiqrug:implement` found a box that passed before any code because earlier work delivered it,
-  and ticked it on that evidence. The item's reviewer checks the claim. **A box that passed
-  first never parks an item.**
-- `Box <n> worded wrong: <why>` — the box passed before any work and is worded wrong. It stays
-  open, is owed, and goes to the report as a spec question.
-- `Spec question: <question>` — a review finding that is a gap in the spec, written by the item's
-  fix instead of code. The report lists it under *Spec questions*.
+**Three `## Comments` lines are read by the loop**, each by its exact prefix: `Fails first:`,
+`Box <n> worded wrong:` and `Spec question:`. `/wiqrug:implement` steps 2 and 6 say when each is
+written.
 
 The loop may add one box itself: *the code gate passes at this item's last commit* — the done
 command failed there and one repair did not fix it. It holds the item open until a session makes

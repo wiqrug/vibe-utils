@@ -20,7 +20,7 @@ building the project's structure it is `setup-in-progress`, and then only `versi
 
 ```ini wiqrug
 [wiqrug]
-version = 0.1.0
+version = 0.2.0
 state = complete
 ```
 
@@ -36,7 +36,7 @@ document. Setup never moves an existing document to fit these.
 - `glossary` — the project's words, and the synonyms to avoid.
 - `questions` — the open questions nobody has answered yet.
 - `now` — the short note of what is true now and what comes next.
-- `research` — where `/wiqrug:research` saves what it found.
+- `research` — where `/wiqrug:research` saves what it found, when a file is asked for.
 - `archive` — where superseded documents, and project skills setup retired, are kept.
 - `ledger` — Full knowledge only: the evidence ledger of facts (`F-`) and questions (`Q-`).
 - `units` — Full knowledge only: one file per part of the system, with its Now and Next.

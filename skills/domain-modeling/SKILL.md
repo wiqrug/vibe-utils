@@ -1,6 +1,6 @@
 ---
 name: domain-modeling
-description: Sharpen the project's words and decisions, and file them as they resolve. Use when a term is fuzzy, overloaded or differs from the glossary, when the owner makes a decision worth a D- file, or when an answer about the project's subject needs checking before it is written down.
+description: Use when a term is fuzzy, overloaded or differs from the glossary, when the owner makes a decision worth a D- file, or when an answer about the project's subject needs checking before it is written down.
 ---
 
 !`wiqrug-check --skill`
@@ -11,22 +11,12 @@ Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 
 # Domain modeling
 
-The half of `/wiqrug:grill-with-docs` that writes, beside `/wiqrug:interview`'s technique.
-`grill-with-docs` pastes it in; any other session reaches it when a word or a decision surfaces
-mid-work, and applies *Every answer checked* and *File as it resolves* to that one thing.
-`/wiqrug:grill-me` files nothing, so inside it everything here goes to the playback's decision list
-instead.
+Sharpen the project's words and decisions while the owner designs, and file each the moment it
+resolves.
 
 The settings above name the documents: `documents.glossary`, `documents.decisions`,
 `documents.questions` and, in a Full knowledge base, `documents.ledger`. A document set to `none`
 is one the project does not keep — `/wiqrug:file-knowledge` says what it offers instead.
-
-What this skill files, `/wiqrug:file-knowledge` writes, in these templates' formats: a term,
-`${CLAUDE_PLUGIN_ROOT}/templates/knowledge/common/glossary.md`; a decision,
-`${CLAUDE_PLUGIN_ROOT}/templates/knowledge/common/decision.md`; a question — Standard,
-`${CLAUDE_PLUGIN_ROOT}/templates/knowledge/standard/questions.md`; Full,
-`${CLAUDE_PLUGIN_ROOT}/templates/knowledge/full/question.md` with its line in
-`${CLAUDE_PLUGIN_ROOT}/templates/knowledge/full/questions.md`.
 
 ## Inside each question
 
@@ -42,7 +32,7 @@ two price periods, a record moved between owners halfway through — and ask wha
 
 ## Every answer checked
 
-An answer is a claim. Check it before it is written down:
+An answer is a claim: check it against the evidence before it is written down.
 
 | about | against |
 |---|---|
@@ -51,27 +41,19 @@ An answer is a claim. Check it before it is written down:
 | what is running, where | the environments the settings name, asked of the machine — never remembered |
 | a term | the glossary |
 
-⚠️ **An answer the evidence contradicts is neither a fact nor a correction.** It becomes a
-question with both sides quoted — in a Full knowledge base a `Q-` item with status
-`contradicted`, in a Standard one an open question marked contradicted — and the work goes
-around it. `/wiqrug:file-knowledge` owns both formats.
+An answer the evidence contradicts is filed as contradicted, and the work goes around it.
 
 ## File as it resolves
 
-Terms and decisions are written during the interview, not after it:
+Terms and decisions are written during the interview, as each resolves — not held for the
+playback:
 
 - **A term resolves** — the owner settles what a word means, or which of two words is right:
-  call the Skill tool with `wiqrug:file-knowledge`, which writes it to the glossary in its format.
-- **A decision is made** that is all three — hard to reverse, surprising without its context,
-  and a real trade-off: call `wiqrug:file-knowledge`, which writes a `D-` file with the owner's
-  words verbatim. Anything less goes into the playback's decision list only.
+  call the Skill tool with `wiqrug:file-knowledge`.
+- **A decision is made**: call `wiqrug:file-knowledge`; one that does not earn a `D-` file goes
+  into the playback's decision list.
 - **A decision only the owner can make** and nobody has made becomes an open question naming the
   owner as the one who answers it, and what depends on it waits.
-
-Each filing is its own commit, made when it resolves — not batched with the next one, and not
-held for the playback. The understanding document is different: `/wiqrug:to-spec` writes it, and
-only after the owner has confirmed the playback. Unattended, a term or decision goes to the item's
-`## To file` instead.
 
 ## Scenarios
 

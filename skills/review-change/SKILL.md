@@ -76,10 +76,8 @@ The project's own, never a list carried from elsewhere:
   `paths:` is always on.
 - **The project's traps** — `documents.gotchas`, unless it is `none` — whose area the diff
   touches: a change that walks back into a filed trap is a finding.
-- **The reviewer's own lenses.** It already carries them — blank is not zero, a default says so,
-  a second idiom, no personal data, a refused edit is not saved, a count equals the rows behind
-  it, a check that cannot run does not look passed, a domain claim cites its source. Name them in
-  the brief; do not restate them.
+- **The reviewer's own lenses.** It already carries them: the brief tells it to apply them,
+  without listing them.
 - **Tests that repeat the code's own calculation.** An expected value computed the way the code
   computes it proves only that the code agrees with itself. It must come from an independent
   source (`/wiqrug:tdd`).
@@ -118,8 +116,8 @@ Two `Agent` calls with the `wiqrug:reviewer` subagent type, in one message. Each
 the three absolute paths from step 1.
 
 **Standards brief:** the project's instruction files and the matching rule files, by path; the
-traps by path; the lens names from step 3; the smell baseline pasted in full, because the reviewer
-has no other copy; and:
+traps by path; an instruction to apply its lenses; the smell baseline pasted in full, because the
+reviewer has no other copy; and:
 
 > Report, per file and hunk, (a) every place the diff breaks the project's instructions, a rule
 > file, a filed trap or one of your lenses — cite the file and the rule, or the lens; (b) any

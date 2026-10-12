@@ -13,19 +13,13 @@ Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 
 # Grill with docs
 
-The first step of the loop, for a feature — anything larger than a single change:
-`/wiqrug:grill-with-docs` → `/wiqrug:to-spec` → `/wiqrug:to-tickets` → `/wiqrug:implement`.
-
-**Nothing is built in this skill, and nothing is written but the knowledge that resolves on
-the way** — glossary terms and decisions, each as its own commit. It ends in a playback the
-owner confirms; `/wiqrug:to-spec` then writes the document from this conversation.
+**Nothing is written but glossary terms and decisions, each as its own commit.**
 
 ## 1 — look up what the project already knows
 
 The settings above name every document; one set to `none` is one the project does not keep, and
 is skipped. Before the first question, because a feature that already exists under another name
-changes every question after it, read rather than assume — in a background `Explore` subagent
-when the reading is long, asking the round-1 questions that do not depend on it meanwhile:
+changes every question after it, read rather than assume:
 
 - **`documents.now`**, and in a Full knowledge base **`documents.units`** — is this already
   open somewhere under another name?
@@ -43,8 +37,8 @@ when the reading is long, asking the round-1 questions that do not depend on it 
 ## 2 — interview, with the questions that belong to a feature
 
 The technique is `/wiqrug:interview`, and `/wiqrug:domain-modeling` sharpens and files the
-knowledge on the way; both are printed in full at the end of this skill. These are the questions,
-and the first round is whichever of them do not depend on another:
+knowledge on the way. These are the questions, and the first round is whichever of them do not
+depend on another:
 
 - **Who reads the result?** A document or a screen handed to the project's users is written in
   `language.deliverables`; the project's own code and knowledge stay in the language they are in.
@@ -66,11 +60,6 @@ and the first round is whichever of them do not depend on another:
 
 Where it is tested is not asked here: `/wiqrug:to-spec` proposes the seams and agrees them with
 the owner.
-
-## 3 — play it back, and wait for the owner
-
-The interview's **Playback**, with its decision list. The owner reading it is the check the
-whole chain rests on: nothing past this point happens until they confirm it.
 
 ## Report
 

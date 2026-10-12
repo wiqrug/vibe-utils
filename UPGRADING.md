@@ -20,3 +20,9 @@ A release that changes nothing for projects says so and has no block.
 The first release. A settings file that names an earlier version has its version raised, and a
 folder its `documents` settings name that does not exist yet is created empty; nothing else about
 the project changes.
+
+## 0.2.0
+
+Nothing changes for projects: the settings file has its version raised, and no setting or folder
+is added, renamed or removed. The skills changed: `/wiqrug:improve-codebase-architecture` is new,
+and `/wiqrug:research` reports in the conversation, saving a file only when one is asked for.

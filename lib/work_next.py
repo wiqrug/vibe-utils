@@ -29,7 +29,8 @@ An item is `owed` when every box still open is one no session can close:
   * a `- [~]` box — the "done" command ran and passed everything it could check, and only what
     this copy of the project cannot reach was left unchecked;
   * a box whose item says `Box <n> worded wrong: <why>` under `## Comments` — it passed before
-    any work and is worded wrong, which is a question for the owner, not work for a session;
+    any work, or names a record that is not there, and is worded wrong: a question for the
+    owner, not work for a session;
   * the "`<done.command>` exits 0" box of an older queue, once any other box on the item is
     ticked — an item nobody built is not finished work. The loop runs the done
     command once on the branch tip at the end, and ticks, marks or reopens it from there. Not
@@ -43,7 +44,10 @@ A `## To file` line is a finding an unattended session leaves for the run's clos
 which files every line — typed `G:`, `F:`, `Q:`, `answer:`, `term:`, `D:` or `defect:`, and
 ticked once `/wiqrug:update-knowledge <slug>` has filed it. It is NOT an acceptance box: an item
 whose only open boxes are To file lines is done, and `--json` lists them apart so the loop can
-tell what the filing has to do.
+tell what the filing has to do. A `D:` line is the exception: an unattended run never files it —
+a decision is written in the owner's words, and nobody is there to give them — so `--json` marks
+it `decision`, the loop does not count it as one to file, and the run's report asks it as a
+question. `reopen_decisions` is the loop's half of that rule.
 
 Three `## Comments` lines are read, each by its exact prefix:
   * `Fails first: box <n> passed at <sha> before any work — delivered by <what>: <evidence>.` —
@@ -101,10 +105,19 @@ FOR_A_PERSON = re.compile(r"for a person", re.IGNORECASE)
 #: note ("Fails first: boxes 1 and 2 ran and exited 1") starts the same way and is not one.
 FAILS_FIRST = re.compile(
     r"^\s*(?:-\s+)?Fails first:\s*(box \d+ passed at \S+ before any work\b.*?)\s*$")
-#: A box that passed before any work and is worded wrong: it stays open, and is owed.
+#: A box worded wrong — it passed before any work, or cannot run as written: open, and owed.
 WORDED_WRONG = re.compile(r"^\s*(?:-\s+)?Box (\d+) worded wrong:\s*(.+?)\s*$")
 #: A review finding that is a gap in the spec: a question for the owner, never code.
 SPEC_QUESTION = re.compile(r"^\s*(?:-\s+)?Spec question:\s*(.+?)\s*$")
+#: A `## To file` line typed `D:` — a decision. An unattended run never files one: a decision is
+#: written in the owner's words, and nobody is there to give them.
+DECISION = re.compile(r"^D:\s")
+#: Why a `D:` line is still open — what the closing session writes on it, and what the loop
+#: writes when it reopens one the session ticked anyway.
+NOT_FILED = "not filed: a decision is the owner's, asked in the run's report"
+#: Why a line the closing session ticked is open again although it is not a `D:` line: where it
+#: was filed is a decision file, and the loop put that back, so it is filed nowhere.
+UNFILED = "not filed: it was filed into a decision file, which the loop put back"
 #: How the box the loop adds when the code gate fails begins. It names the done command too, so
 #: without this it would read as an old queue's done box — owed — and an item whose gate failed
 #: would settle, letting what depends on it be built on code that does not pass.
@@ -182,6 +195,182 @@ class Item:
     @property
     def ticked(self) -> int:
         return sum(1 for ticked, _ in self.boxes if ticked)
+
+    @property
+    def open_decisions(self) -> list[str]:
+        """Open `D:` To file lines: the owner's to decide, never a session's to file."""
+        return [text for filed, text in self.to_file if not filed and is_decision(text)]
+
+
+def is_decision(text: str) -> bool:
+    """Whether a `## To file` line is typed `D:`."""
+    return bool(DECISION.match(text))
+
+
+#: (first line, end line, ticked, joined text) of one `## To file` line.
+Block = tuple[int, int, bool, str]
+
+
+def _to_file_blocks(text: str) -> list[Block]:
+    """Every line under `## To file`, its indented continuation included — a wrapped line is one
+    line, as `parse` reads it."""
+    lines = text.split("\n")
+    out: list[Block] = []
+    inside = False
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("## "):
+            inside = line[3:].strip().lower() == "to file"
+            i += 1
+            continue
+        box = BOX.match(line) if inside else None
+        if not box:
+            i += 1
+            continue
+        end = i + 1
+        while end < len(lines) and lines[end].startswith((" ", "\t")) and lines[end].strip():
+            end += 1
+        joined = " ".join([box.group(2)] + [part.strip() for part in lines[i + 1:end]])
+        out.append((i, end, box.group(1).lower() == "x", joined))
+        i = end
+    return out
+
+
+def _grew_from(text: str, origin: str) -> bool:
+    """Whether `text` is `origin`, or `origin` with words after it — "— filed as …", the reason."""
+    text, origin = " ".join(text.split()), " ".join(origin.split())
+    return text == origin or text.startswith(origin + " ")
+
+
+def _body(text: str) -> str:
+    """A To file line without its type: `D: one way` and `defect: one way` read the same."""
+    return re.sub(r"^\S+:\s*", "", " ".join(text.split()))
+
+
+#: A backticked span — how a document cites a path.
+CITED = re.compile(r"(`[^`\n]*`)")
+#: A cited path: a slash or a file's extension, and no space — not an ID, not a word in code.
+PATH_LIKE = re.compile(r"^`[^`\s]*(?:/[^`\s]*|\.[A-Za-z0-9]{1,5})`$")
+
+
+def citations_only(before: str, now: str) -> bool:
+    """Whether `now` differs from `before` only in which path a backticked citation names, line
+    for line: a dead path a knowledge-base check named, fixed where it is cited. That decides
+    nothing, so the loop keeps it in a decision file. A changed ID, word or line is the owner's
+    words changed, and is put back."""
+    old, new = before.split("\n"), now.split("\n")
+    if len(old) != len(new):
+        return False
+    for a, b in zip(old, new):
+        parts_a, parts_b = CITED.split(a), CITED.split(b)
+        if len(parts_a) != len(parts_b):
+            return False
+        for x, y in zip(parts_a, parts_b):
+            if x != y and not (PATH_LIKE.match(x) and PATH_LIKE.match(y)):
+                return False
+    return True
+
+
+def _added(text: str, origin: str) -> str:
+    """The words a session wrote after a line it grew from — where it says it filed it."""
+    return " ".join(text.split())[len(" ".join(origin.split())):]
+
+
+def _names(text: str, names: tuple[str, ...]) -> bool:
+    """Whether `text` names one of `names` as a whole word: `D-001` is not `D-0012`."""
+    return any(re.search(rf"(?<![\w-]){re.escape(name)}(?![\w])", text) for name in names if name)
+
+
+def _put_back(lines: list[str], lost: list[str]) -> None:
+    """`lost` at the end of the last `## To file` in `lines`, or in a new one at the end."""
+    if not lost:
+        return
+    heads = [i for i, line in enumerate(lines)
+             if line.startswith("## ") and line[3:].strip().lower() == "to file"]
+    if not heads:
+        while lines and not lines[-1]:
+            lines.pop()
+        lines += ["", "## To file", "", *lost, ""]
+        return
+    end = next((i for i in range(heads[-1] + 1, len(lines)) if lines[i].startswith("## ")),
+               len(lines))
+    while end > heads[-1] + 1 and not lines[end - 1].strip():
+        end -= 1
+    lines[end:end] = lost
+
+
+def reopen_decisions(before: str, now: str, undone: tuple[str, ...] = ()) -> tuple[str, int]:
+    """`now`, with every `D:` To file line that was open in `before` open again, as it read in
+    `before`, with why; and how many it reopened. The loop runs it on the item files the closing
+    session changed: whatever the session did, a `D:` line it ticked is not filed.
+
+    An open line is accounted for in this order: ticked in `now` — the same text, or that text
+    with the session's "— filed as …" after it, or, when the item holds as many `D:` lines as it
+    did, the one in the same place — is reopened in its place; still open, as it was or with
+    words after it, is left; retyped (`defect: one way` for `D: one way`), in any state, is put
+    back in its place; still open but reworded is left, one for one. Whatever is left — moved
+    out to `## Comments`, deleted, its section gone — is put back at the end of `## To file`,
+    because a line nobody can find is neither filed nor asked. A line already ticked in
+    `before` is left.
+
+    `undone` names the decision files the loop put back — a path, a file name, an ID. Any other
+    line the session ticked whose added words name one of them was filed into text that no
+    longer exists, so it is open again too, as it was, with why.
+    """
+    blocks_was, blocks_now = _to_file_blocks(before), _to_file_blocks(now)
+    was = [block for block in blocks_was if is_decision(block[3])]
+    is_ = [block for block in blocks_now if is_decision(block[3])]
+    old_lines, lines = before.split("\n"), now.split("\n")
+    candidates = [block for block in was if not block[2]]
+    replace: list[tuple[int, int, list[str]]] = []
+
+    def restored(block: Block) -> list[str]:
+        text = old_lines[block[0]:block[1]]
+        if not text[-1].rstrip().endswith(NOT_FILED):
+            text[-1] = f"{text[-1].rstrip()} — {NOT_FILED}"
+        return text
+
+    def take(match: Block | None, start: int, end: int) -> None:
+        if match is not None:
+            candidates.remove(match)
+            replace.append((start, end, restored(match)))
+
+    for place, (start, end, ticked, joined) in enumerate(is_):
+        if not ticked:
+            continue
+        match = next((block for block in candidates if _grew_from(joined, block[3])), None)
+        if match is None and len(was) == len(is_) and was[place] in candidates:
+            match = was[place]
+        take(match, start, end)
+    reworded = []
+    for block in (block for block in is_ if not block[2]):
+        match = next((c for c in candidates if _grew_from(block[3], c[3])), None)
+        if match is None:
+            reworded.append(block)
+        else:
+            candidates.remove(match)
+    unchanged = {(block[2], " ".join(block[3].split())) for block in blocks_was}
+    for start, end, ticked, joined in blocks_now:
+        if is_decision(joined) or (ticked, " ".join(joined.split())) in unchanged:
+            continue
+        take(next((c for c in candidates if _grew_from(_body(joined), _body(c[3]))), None),
+             start, end)
+    del candidates[:len(reworded)]
+    _put_back(lines, [line for block in candidates for line in restored(block)])
+    taken = {start for start, _, _ in replace}
+    for start, end, ticked, joined in blocks_now:
+        if not ticked or start in taken or is_decision(joined):
+            continue
+        origin = next((block for block in blocks_was if not block[2]
+                       and not is_decision(block[3]) and _grew_from(joined, block[3])), None)
+        if origin is not None and _names(_added(joined, origin[3]), undone):
+            text = old_lines[origin[0]:origin[1]]
+            text[-1] = f"{text[-1].rstrip()} — {UNFILED}"
+            replace.append((start, end, text))
+    for start, end, text in sorted(replace, reverse=True):
+        lines[start:end] = text
+    return "\n".join(lines), len(replace) + len(candidates)
 
 
 def split_values(raw: str) -> list[str]:
@@ -385,7 +574,8 @@ def main(argv: list[str]) -> int:
                            "why": states[i.number][1],
                            "waits_on": i.waits_on, "advances": i.advances,
                            "attended": i.attended,
-                           "to_file": [{"filed": filed, "text": text}
+                           "to_file": [{"filed": filed, "text": text,
+                                        "decision": is_decision(text)}
                                        for filed, text in i.to_file],
                            "fails_first": i.fails_first,
                            "worded_wrong": [{"box": n, "why": why}
@@ -603,7 +793,7 @@ def selftest() -> int:
 
         failures += _selftest_items_name_no_files(root, folder)
 
-    cases = 21  # one per failures.append: a count must equal the checks behind it
+    cases = 24  # one per failures.append: a count must equal the checks behind it
     for line in failures:
         print(f"selftest FAIL  {line}", file=sys.stderr)
     print(f"selftest {'FAILED' if failures else 'ok'} — "
@@ -686,6 +876,83 @@ def _selftest_items_name_no_files(root: Path, folder: Path) -> list[str]:
         "- [ ] `c.py` passes\n\n## Comments\n\nBox 2 worded wrong: it passed first.\n"))
     if _states(root)["01"] != "ready":
         failures.append("worded wrong: box 1, a command's, was excused too")
+    return failures + _selftest_decisions(root, folder)
+
+
+def _selftest_decisions(root: Path, folder: Path) -> list[str]:
+    """A `D:` To file line is the owner's: read apart, and reopened when a session ticks it."""
+    failures: list[str] = []
+    for path in folder.glob("*.md"):
+        path.unlink()
+
+    # A D: line is read as a decision, open, and marked so in --json; a G: line is not.
+    _write(folder, "01", "first", box="x", extra=(
+        "\n## To file\n\n- [ ] G: a trap\n- [ ] D: a download reads the base file\n"
+        "  at the click\n- [x] D: settled by the owner — D-001\n"))
+    first = load("demo", folder.parent)[0]
+    code, out = _quietly(["demo", "--json", "--project", str(root)])
+    marked = [line["decision"] for line in json.loads(out)[0]["to_file"]] if code == 0 else []
+    if first.open_decisions != ["D: a download reads the base file at the click"] \
+            or marked != [False, True, True]:
+        failures.append(f"decision: {first.open_decisions}, {marked}")
+
+    # A closing session that ticked a D: line has it reopened, as it was, with why; a line it
+    # filed otherwise, and a D: line ticked before it ran, are left as they are.
+    before = ("## To file\n\n- [ ] G: a trap\n- [ ] D: a download reads the base file\n"
+              "  at the click\n- [x] D: settled by the owner — D-001\n\n## Comments\n")
+    now = ("## To file\n\n- [x] G: a trap — G-900\n- [x] D: a download reads the base file\n"
+           "  at the click — filed as D-041\n- [x] D: settled by the owner — D-001\n\n## Comments\n")
+    got, count = reopen_decisions(before, now)
+    want = ("## To file\n\n- [x] G: a trap — G-900\n- [ ] D: a download reads the base file\n"
+            f"  at the click — {NOT_FILED}\n- [x] D: settled by the owner — D-001\n\n## Comments\n")
+    if (got, count) != (want, 1):
+        failures.append(f"reopen: {count} reopened, read {got!r}")
+
+    # A session that rewrote the line's words is still caught, by the line's place.
+    got, count = reopen_decisions("## To file\n\n- [ ] D: one way\n",
+                                  "## To file\n\n- [x] D: the way we built — D-046\n")
+    if (got, count) != (f"## To file\n\n- [ ] D: one way — {NOT_FILED}\n", 1):
+        failures.append(f"reopen, reworded: {count} reopened, read {got!r}")
+
+    # A D: line the session moved out of ## To file, retyped, or deleted with its section is put
+    # back, open: an open line with no counterpart is neither filed nor asked. One it left open,
+    # with its reason, is left alone.
+    before = "## To file\n\n- [ ] G: a trap\n- [ ] D: one way\n\n## Comments\n"
+    ticked = "## To file\n\n- [x] G: a trap — G-900\n"
+    reopened = f"{ticked}- [ ] D: one way — {NOT_FILED}\n"
+    for case, now, want, n in (
+            ("moved", f"{ticked}\n## Comments\n\nD: one way\n",
+             f"{reopened}\n## Comments\n\nD: one way\n", 1),
+            ("retyped", f"{ticked}- [x] defect: one way — open-defects\n\n## Comments\n",
+             f"{reopened}\n## Comments\n", 1),
+            ("deleted", "## Comments\n",
+             f"## Comments\n\n## To file\n\n- [ ] D: one way — {NOT_FILED}\n", 1),
+            ("left open", f"{reopened}\n## Comments\n", f"{reopened}\n## Comments\n", 0)):
+        got, count = reopen_decisions(before, now)
+        if (got, count) != (want, n):
+            failures.append(f"reopen, {case}: {count} reopened, read {got!r}")
+
+    # A line the session filed into a decision file the loop put back is open again, with why;
+    # one filed elsewhere, or naming another decision, stays filed.
+    got, count = reopen_decisions(
+        "## To file\n\n- [ ] answer: Q-1 yes\n- [ ] term: x\n- [ ] G: y\n",
+        "## To file\n\n- [x] answer: Q-1 yes — filed as D-001\n- [x] term: x — glossary\n"
+        "- [x] G: y — G-9, see D-0012\n", ("D-001",))
+    want = (f"## To file\n\n- [ ] answer: Q-1 yes — {UNFILED}\n- [x] term: x — glossary\n"
+            "- [x] G: y — G-9, see D-0012\n")
+    if (got, count) != (want, 1):
+        failures.append(f"reopen, filed into an undone decision: {count} reopened, read {got!r}")
+
+    # A decision file whose only change is a cited path — a dead path the knowledge base named,
+    # fixed where it is cited — is kept; a changed ID, word or line is the owner's, changed.
+    decision = "# D-1: x\n\nBuilt in `old/a.py`, after `D-035`.\n"
+    for case, now, want in (
+            ("a path", decision.replace("old/a.py", "new/a.py"), True),
+            ("an ID", decision.replace("D-035", "D-040"), False),
+            ("a word", decision.replace("Built", "Made"), False),
+            ("a line", decision + "\nAnd the session chose this.\n", False)):
+        if citations_only(decision, now) is not want:
+            failures.append(f"citations only, {case}: not {want}")
     return failures
 
 

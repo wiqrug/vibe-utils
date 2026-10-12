@@ -56,8 +56,14 @@ Box <n> worded wrong: <why it passes with none of this item's work, and what it 
 The first when earlier work really delivered what the box asks: tick the box, and the item's
 reviewer checks the claim. The second when the box is simply worded wrong: leave it unticked —
 it is owed, holds nothing up, and goes to the report as a question for the owner. Either way,
-build the rest of the item. `/wiqrug:to-tickets` wrote each box with the clause that says what
-would show it false; this step is where that clause is run.
+build the rest of the item.
+
+**A box that cannot run as written is worded wrong too**: it names a record of the project's
+data — a contract, a code, a booking — that is not there, so no code this item writes makes it
+pass. Look for the record first; a box that runs and fails is the work, never worded wrong. Only
+when the lookup comes back empty, write `Box <n> worded wrong: cannot run as written — <what it
+names, and where you looked>; it should say <…>`, leave the box unticked, and build the rest.
+The item's reviewer checks the lookup.
 
 A box the loop added — *the code gate passes at this item's last commit* — means an earlier run
 left this item failing the code gate. It names its command and its log: make it pass like any
@@ -94,9 +100,7 @@ Leave an older queue's "done" box to the loop, which settles it on the branch ti
 
 What a person has to judge by looking — a screen, a wording — goes in the item's
 `## Check in the browser`, which the run's report gathers under *For you to check*. An older
-queue puts it in a box **for a person** instead: that box stays unticked, and the queue reader
-reads those words — an item whose only open boxes are a person's is `owed`, not unfinished, and
-the items after it may start.
+queue may hold a box for a person instead: leave it unticked; it is owed.
 
 **When the item changes a screen, open [screens.md](screens.md) now**: the check that proves it,
 where the project has one, and the owner's steps for what only a person can judge.
@@ -118,7 +122,8 @@ knowledge that outlives it — except **unattended**, where knowledge is filed o
 closing session: there the finding goes into the item's `## To file` as one unticked line typed
 by its kind (`G:`, `term:`, `D:`, `defect:`, `answer:`, and in a Full knowledge base `F:` and
 `Q:`), and that session files it after the last item. A To file line is not an acceptance box;
-the closing session ticks it.
+the closing session ticks it — except a `D:` line, a choice you made that may be the owner's to
+make: no unattended run files it into a decision; the run's report asks the owner.
 
 ## 6 — review the item's diff, unless the session is unattended
 
@@ -154,8 +159,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/lib/work_next.py <slug>
 
 Where `python3` is not the name, `wiqrug-check --python` prints the one this machine has. The
 queue reader decides readiness from the files: ready when every `Blocked by:` is done and
-`Waits on:` is empty. An `Attended:` item is offered here and never to the loop
-(`--unattended`). On a malformed item it exits `2`, so a loop cannot skip what it cannot judge.
+`Waits on:` is empty. On a malformed item it exits `2`, so a loop cannot skip what it cannot judge.
 
 **Between items, clear the context**: the next item was sized for a fresh window, and a window
 carrying the last one's reasoning is where two items quietly merge.

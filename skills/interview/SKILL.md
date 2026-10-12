@@ -1,16 +1,14 @@
 ---
 name: interview
-description: Interview the user in rounds until a request is understood well enough to build. Use when a request arrives underspecified and a guess would cost more than a question.
+description: Use when a request arrives underspecified and a guess would cost more than a question.
 ---
 
 # Interview
 
 Adapted from mattpocock/skills (MIT, © 2026 Matt Pocock).
 
-This skill owns the technique — Matt's `grilling` — and writes nothing. It needs no setup, so it
-works in any folder. The questions belong to whoever called it: `/wiqrug:grill-with-docs` asks
-about a feature and adds `/wiqrug:domain-modeling` for the knowledge; `/wiqrug:setup` asks how a
-project should be organised; `/wiqrug:grill-me` asks about whatever the user brought.
+Interview the user relentlessly until you reach a shared understanding. It needs no setup, so it
+works in any folder.
 
 ## Rounds
 
@@ -30,6 +28,8 @@ frontier, ask the next round.
 
 ❓ **Q2** - …
 ```
+
+Word each question so "yes" accepts your recommendation.
 
 A round opens with its questions. A finding appears only inside the question it bears on, in
 one line; the rest waits for the playback.
